@@ -1,0 +1,19 @@
+name: naru
+channels:
+  - http://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/msys2/
+  - http://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main/
+  - http://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
+  - http://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/
+  - http://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/Paddle/
+  - http://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/fastai/
+  - http://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/pytorch/
+  - http://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/bioconda/
+dependencies:
+  - numpy=1.15.0
+  - python=3.6
+  - pip
+  - pip:
+    - pandas==0.24.1
+    - torch==1.0.1.post2
+    - torchvision==0.2.1
+    - scipy==1.2.0
