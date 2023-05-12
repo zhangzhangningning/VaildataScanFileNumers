@@ -16,6 +16,7 @@ import datasets
 import made
 import countPredictFile
 import time
+import sys
 from sklearn.cluster import AgglomerativeClustering, estimate_bandwidth, KMeans
 import get_workload_relation as wr
 
@@ -490,9 +491,115 @@ def GetPredicatedData(all_data, predicate, columns, columns_order):
 
 
 
-def Main(sample_data, all_data, predicate, column, is_cal):
+def Main(sample_data, all_data, predicate, column, is_cal, model):
     cwd = os.getcwd()
     print(cwd)
+    
+
+    time_start = time.time()
+        #sorted_data = pd.read_csv("/data1/chenxu/projects/ValidateScanFileNumbers/datasets/lineitem_orderAllCols_sample.csv", sep='|')
+        #sorted_data = pd.read_csv("/home/cr/naru/datasets/lineitem_withorder_sample.csv")
+
+    sorted_data = sample_data
+    print(column)
+    columns = ['l_orderkey', 'l_partkey', 'l_suppkey', 'l_extendedprice',
+            'l_shipdate', 'l_commitdate', 'l_receiptdate', 'l_comment',
+            'l_quantity', 'l_discount', 'l_linenumber', 'l_linestatus',
+            'l_shipmode', 'l_returnflag', 'l_tax', 'l_shipinstruct']
+        # columns = ['Record_Type','Registration_Class','State','County','Body_Type','Fuel_Type','Reg_Valid_Date','Color','Scofflaw_Indicator','Suspension_Indicator','Revocation_Indicator']
+    columns_order = [i + '_order' for i in columns]
+        #predicated_data = origin_data.loc[eval(predicate)].sample() 
+
+        #sample_nums = predicated_data.shape[0] if predicated_data.shape[0] < 10000 else 10000
+        #predicated_data = predicated_data.sample(n=sample_nums)
+
+    data = sorted_data.loc[:,columns_order]
+    data = data.sample(n=10000)
+
+    time_start = time.time()
+    for c in columns:
+        if c not in column:
+            data[c + '_order'] = 0
+        else:
+            data[c + '_order'] += 1
+    arr = data.to_numpy()
+    print(f'points nums: {arr.shape[0]}')
+
+    time_end = time.time()
+    print("Processing data time cost: ", time_end - time_start)
+
+    inp = torch.tensor(arr[:,:], dtype=torch.int).to(DEVICE)
+    array = model(inp).cpu().detach().numpy()
+    print(array.shape[0])
+
+
+
+    if is_cal == True:
+        print("To cal distance")
+        return array, []        
+    else:
+
+        predicated_data = GetPredicatedData(all_data, predicate, columns, columns_order)
+            # print(predicated_data)
+        predicated_data = predicated_data.loc[:,columns_order]
+        print(predicated_data.shape)
+
+        for c in columns:
+            if c not in column:
+                predicated_data[c + '_order'] = 0
+            else:
+                predicated_data[c + '_order'] += 1
+
+        parr = predicated_data.to_numpy()
+
+
+        inp = torch.tensor(parr[:,:], dtype=torch.int).to(DEVICE)
+            
+        try:
+            parray = model(inp).cpu().detach().numpy()
+        except:
+            exit(1)
+        print(parray.shape[0])
+
+
+        #用于算距离
+        """ data = sorted_data.loc[:,columns_order]
+        arr = data.to_numpy()
+        ones = np.ones((data.shape[0], data.shape[1]))
+        arr = arr + ones """
+
+
+
+    return array, parray
+
+def WriteRecodeSAR(selectivites_reward_cols_file,total_predict_files):
+    action_array = wr.GetActionsArray()
+    final_reward = math.log(eval(str(total_predict_files)))
+    final_reward = -final_reward
+    with open(selectivites_reward_cols_file,'a') as f:
+        f.write(str(final_reward))
+        f.write(' ')
+        f.write(str(selectivities))
+        f.write(' ')
+        f.write(str(action_array))
+        # f.write('\n')
+def WriteDistance(distance):
+    with open('/home/ning/zorderlearn/ValidateScanFileNumbers/distance.txt','w') as f:
+        f.write(str(distance))
+def GetDistance():
+    with open('/home/ning/zorderlearn/ValidateScanFileNumbers/distance.txt','r') as f:
+        distance = f.readlines()
+    return distance
+
+
+if __name__ == '__main__':
+
+    #all_data = pd.read_csv("/home/ning/zorderlearn/ValidateScanFileNumbers/datasets/lineitem_orderAllCols.csv", sep='|')
+    sample_data = pd.read_csv("/home/ning/zorderlearn/ValidateScanFileNumbers/datasets/lineitem_orderAllCols_sample.csv", sep='|')
+    
+    #all_data = pd.read_csv("/home/ning/zorderlearn/ValidateScanFileNumbers/datasets/dmv-clean_order.csv", sep=',')
+    #sample_data = pd.read_csv("/home/ning/zorderlearn/ValidateScanFileNumbers/datasets/dmv-clean_order_sample.csv", sep='|')
+    
     time_start = time.time()
     all_ckpts = glob.glob('./models/{}'.format(args.glob))
     # all_ckpts = glob.glob('/home/ning/zorderlearn/ValidateScanFileNumbers/models/{}'.format(args.glob))
@@ -555,108 +662,22 @@ def Main(sample_data, all_data, predicate, column, is_cal):
         time_end = time.time()
         print("loading time cost: ", time_end - time_start)
 
-        time_start = time.time()
-        #sorted_data = pd.read_csv("/data1/chenxu/projects/ValidateScanFileNumbers/datasets/lineitem_orderAllCols_sample.csv", sep='|')
-        #sorted_data = pd.read_csv("/home/cr/naru/datasets/lineitem_withorder_sample.csv")
+    # 读取第一个DataFrame对象的大小
+    size1_bytes = sys.stdin.buffer.read(4)
+    size1 = np.frombuffer(size1_bytes, dtype=np.uint32)[0]
 
-        sorted_data = sample_data
-        print(column)
-        # columns = ['l_orderkey', 'l_partkey', 'l_suppkey', 'l_extendedprice',
-        #     'l_shipdate', 'l_commitdate', 'l_receiptdate', 'l_comment',
-        #     'l_quantity', 'l_discount', 'l_linenumber', 'l_linestatus',
-        #     'l_shipmode', 'l_returnflag', 'l_tax', 'l_shipinstruct']
-        columns = ['Record_Type','Registration_Class','State','County','Body_Type','Fuel_Type','Reg_Valid_Date','Color','Scofflaw_Indicator','Suspension_Indicator','Revocation_Indicator']
-        columns_order = [i + '_order' for i in columns]
-        #predicated_data = origin_data.loc[eval(predicate)].sample() 
+    # 读取第一个DataFrame对象
+    df1_bytes = sys.stdin.buffer.read(size1)
+    all_data = pickle.loads(df1_bytes)
 
-        #sample_nums = predicated_data.shape[0] if predicated_data.shape[0] < 10000 else 10000
-        #predicated_data = predicated_data.sample(n=sample_nums)
+    # 读取第二个DataFrame对象的大小
+    #size2_bytes = sys.stdin.buffer.read(4)
+    #size2 = np.frombuffer(size2_bytes, dtype=np.uint32)[0]
 
-        data = sorted_data.loc[:,columns_order]
-        data = data.sample(n=10000)
+    # 读取第二个DataFrame对象
+    #df2_bytes = sys.stdin.buffer.read(size2)
+    #sample_data = pickle.loads(df2_bytes)
 
-        time_start = time.time()
-        for c in columns:
-            if c not in column:
-                data[c + '_order'] = 0
-            else:
-                data[c + '_order'] += 1
-        arr = data.to_numpy()
-        print(f'points nums: {arr.shape[0]}')
-
-        time_end = time.time()
-        print("Processing data time cost: ", time_end - time_start)
-
-        inp = torch.tensor(arr[:,:], dtype=torch.int).to(DEVICE)
-        array = model(inp).cpu().detach().numpy()
-        print(array.shape[0])
-
-
-        if is_cal == True:
-            print("To cal distance")
-            return array, []
-        else:
-
-            predicated_data = GetPredicatedData(all_data, predicate, columns, columns_order)
-            # print(predicated_data)
-            predicated_data = predicated_data.loc[:,columns_order]
-            print(predicated_data.shape)
-
-            for c in columns:
-                if c not in column:
-                    predicated_data[c + '_order'] = 0
-                else:
-                    predicated_data[c + '_order'] += 1
-
-            parr = predicated_data.to_numpy()
-
-
-            inp = torch.tensor(parr[:,:], dtype=torch.int).to(DEVICE)
-            
-            try:
-                parray = model(inp).cpu().detach().numpy()
-            except:
-                exit(1)
-            print(parray.shape[0])
-
-
-        #用于算距离
-        """ data = sorted_data.loc[:,columns_order]
-        arr = data.to_numpy()
-        ones = np.ones((data.shape[0], data.shape[1]))
-        arr = arr + ones """
-
-
-
-        return array, parray
-
-def WriteRecodeSAR(selectivites_reward_cols_file,total_predict_files):
-    action_array = wr.GetActionsArray()
-    final_reward = math.log(eval(str(total_predict_files)))
-    final_reward = -final_reward
-    with open(selectivites_reward_cols_file,'a') as f:
-        f.write(str(final_reward))
-        f.write(' ')
-        f.write(str(selectivities))
-        f.write(' ')
-        f.write(str(action_array))
-        # f.write('\n')
-def WriteDistance(distance):
-    with open('/home/ning/zorderlearn/ValidateScanFileNumbers/distance.txt','w') as f:
-        f.write(str(distance))
-def GetDistance():
-    with open('/home/ning/zorderlearn/ValidateScanFileNumbers/distance.txt','r') as f:
-        distance = f.readlines()
-    return distance
-
-
-if __name__ == '__main__':
-
-    # all_data = pd.read_csv("/home/ning/zorderlearn/ValidateScanFileNumbers/datasets/lineitem_orderAllCols.csv", sep='|')
-    # sample_data = pd.read_csv("/home/ning/zorderlearn/ValidateScanFileNumbers/datasets/lineitem_orderAllCols_sample.csv", sep='|')
-    
-    all_data = pd.read_csv("/home/ning/zorderlearn/ValidateScanFileNumbers/datasets/dmv-clean_order.csv", sep=',')
-    sample_data = pd.read_csv("/home/ning/zorderlearn/ValidateScanFileNumbers/datasets/dmv-clean_order_sample.csv", sep='|')
     selectivites_reward_cols_file = '/home/ning/zorder/New_agg_result/selectivites_reward_cols.txt'
 
     """sample_cols = ['l_orderkey', 'l_partkey', 'l_suppkey', 'l_extendedprice',
@@ -665,8 +686,11 @@ if __name__ == '__main__':
             'l_shipmode', 'l_returnflag', 'l_tax', 'l_shipinstruct']"""
     
     # 用于算聚类的距离参数，选不同的列需要更改
-    # sample_cols =['l_orderkey', 'l_partkey', 'l_suppkey', 'l_extendedprice','l_shipdate', 'l_comment', 'l_discount', 'l_linenumber','l_shipmode', 'l_tax', 'l_shipinstruct']
-    sample_cols = ['Record_Type','Registration_Class','State','County','Body_Type','Fuel_Type','Reg_Valid_Date','Color','Scofflaw_Indicator','Suspension_Indicator','Revocation_Indicator']
+    #sample_cols =['l_orderkey', 'l_partkey', 'l_suppkey', 'l_extendedprice','l_shipdate', 'l_comment', 'l_discount', 'l_linenumber','l_shipmode', 'l_tax', 'l_shipinstruct']
+    #sample_cols =['l_orderkey', 'l_partkey', 'l_suppkey', 'l_extendedprice','l_commitdate', 'l_comment', 'l_discount', 'l_linenumber','l_shipmode', 'l_tax', 'l_shipinstruct']
+    # sample_cols = ['l_orderkey', 'l_partkey', 'l_suppkey', 'l_linenumber','l_extendedprice','l_discount','l_tax','l_commitdate', 'l_shipinstruct','l_shipmode','l_comment']
+    sample_cols = ['l_orderkey', 'l_partkey', 'l_suppkey', 'l_extendedprice','l_commitdate','l_comment']
+    # sample_cols = ['Record_Type','Registration_Class','State','County','Body_Type','Fuel_Type','Reg_Valid_Date','Color','Scofflaw_Indicator','Suspension_Indicator','Revocation_Indicator']
 
 
     sample_cols_order = [i + '_order' for i in sample_cols]
@@ -678,6 +702,7 @@ if __name__ == '__main__':
     total_where_array = wr.HandlePredictsGetArrays()
     selected_cols = wr.GetSelectCols()
     predicates = wr.GetMLPredict(total_where_array,selected_cols)
+    # print(predicates)
     predcits_based_selected_cols = wr.GetPredictsBasedSelectCols(total_where_array,selected_cols)
     columns = wr.GetMlColumn(total_where_array,selected_cols)
     SQLs = wr.GetCompleteSql(predcits_based_selected_cols)
@@ -686,7 +711,7 @@ if __name__ == '__main__':
 
     distance = GetDistance()
     if len(distance) == 0:
-        arr, parr = Main(sample_data, all_data, "null", sample_cols, True)
+        arr, parr = Main(sample_data, all_data, "null", sample_cols, True, model)
         bandwidth = estimate_bandwidth(arr, quantile=1)
         WriteDistance(bandwidth)
     else:
@@ -696,10 +721,20 @@ if __name__ == '__main__':
     res = []
     #for i in range(1):
     total_predicts_files = 0
+    full_scan_files = 0
+    full_scan_cnts = 0
     for i in range(len(predicates)):
-        arr, parr = Main(sample_data, all_data, predicates[i], columns[i], False)
+        if predicates[i] == "sorted_data['l_orderkey'] >= sorted_data['l_orderkey'].min()" :
+            full_scan_cnts += 1
+            print("need to full scan")
+            if full_scan_cnts > 1:
+                total_predicts_files += full_scan_files
+                res.append(full_scan_files) 
+                print("full scan uses last result")
+                continue
+        arr, parr = Main(sample_data, all_data, predicates[i], columns[i], False, model)
         predict_nums = parr.shape[0]
-        print(f'prdict nums: {predict_nums}')
+        print(f'predict nums: {predict_nums}')
         array = np.vstack((parr, arr))
         #print(array.shape)
         #bandwith = estimate_bandwidth(array, quantile=1)
@@ -724,10 +759,10 @@ if __name__ == '__main__':
         """ # 如果聚簇数量过少，需要重新聚簇
         if len(unique) < 5:
             new_labels = KMeans(n_clusters=2).fit(array).labels_
-        unique, counts = np.unique(new_labels, return_counts=True) """
+        unique, counts = np.unique(new_labels, return_counts=True)
 
         print(f"New file_id:, {unique}\n")
-        print(f"numbers in each files:, {counts}\n")
+        print(f"numbers in each files:, {counts}\n")"""
 
 
         unique, counts = np.unique(p_labels, return_counts=True)
@@ -743,13 +778,17 @@ if __name__ == '__main__':
 
         predict_nums = selectivities[i] if selectivities[i] < 1000 else predict_nums
         files = selectivities[i] / predict_nums * nums
+        #files = selectivities[i] / 1000 * nums
         total_predicts_files += files
         print(files)
+        if full_scan_cnts == 1:
+            full_scan_files = files
         res.append(files)
         #print(files)
         #count = counts.tolist()
         #print(count)
-        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~end")
     print(res)
+    print(predicates)
     wr.WriteRewards(total_predicts_files)
     WriteRecodeSAR(selectivites_reward_cols_file,total_predicts_files)

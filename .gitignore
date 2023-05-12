@@ -1,3 +1,5 @@
 /datasets
 /*.pt
 /models
+ValidateScanFileNumbers/tpch_sample-4.5MB-model72.376-data15.873-made-hidden512_256_512_128_1024-emb32-directIo-embedInembedOut-inputNoEmbIfLeq-colmask-100epochs-seed0.pt
+ValidateScanFileNumbers/tpch-4.5MB-model69.115-data22.517-made-hidden512_256_512_128_1024-emb32-directIo-embedInembedOut-inputNoEmbIfLeq-colmask-100epochs-seed0.pt

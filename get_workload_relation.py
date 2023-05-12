@@ -13,23 +13,26 @@ import math
 #             'l_shipdate', 'l_commitdate', 'l_receiptdate', 'l_comment',
 #             'l_quantity', 'l_discount', 'l_linenumber', 'l_linestatus',
 #             'l_shipmode', 'l_returnflag', 'l_tax', 'l_shipinstruct']
-# all_predict_cols = ['l_orderkey', 'l_partkey', 'l_suppkey', 'l_linenumber','l_extendedprice','l_discount','l_tax','l_shipdate', 'l_shipinstruct','l_shipmode','l_comment']
-all_predict_cols = all_predict_cols = ['Record_Type','Registration_Class','State','County','Body_Type','Fuel_Type','Reg_Valid_Date','Color','Scofflaw_Indicator','Suspension_Indicator','Revocation_Indicator']
+# all_predict_cols = ['l_orderkey', 'l_partkey', 'l_suppkey', 'l_linenumber','l_extendedprice','l_discount','l_tax','l_commitdate', 'l_shipinstruct','l_shipmode','l_comment']
 
-all_predict_cols_index = [0,1,2,3,4,5,6,7,8,9,10]
+# all_predict_cols = all_predict_cols = ['Record_Type','Registration_Class','State','County','Body_Type','Fuel_Type','Reg_Valid_Date','Color','Scofflaw_Indicator','Suspension_Indicator','Revocation_Indicator']
+all_predict_cols = ['l_orderkey', 'l_partkey', 'l_suppkey', 'l_extendedprice','l_commitdate','l_comment']
+# all_predict_cols_index = [0,1,2,3,4,5,6,7,8,9,10]
 # all_predict_cols = ['l_orderkey', 'l_partkey', 'l_suppkey','l_extendedprice','l_shipdate','l_comment']
-# all_predict_cols_index =[0,1,2,5,10,15]
+all_predict_cols_index =[0,1,2,5,11,15]
 
-gen_random_predict_file = "/home/ning/zorder/Cardinality_Estimation_pg/dmv_50.txt"
-source_file_name = "/home/ning/zorderlearn/ValidateScanFileNumbers/datasets/dmv-clean.csv"
+# gen_random_predict_file = "/home/ning/zorder/Cardinality_Estimation_pg/gen_rand_predicts50.16.txt"
+gen_random_predict_file = "/home/ning/zorder/sqls/lineitem_distinctbig_50_6.txt"
+# source_file_name = "/home/ning/zorderlearn/ValidateScanFileNumbers/datasets/dmv-clean.csv"
+source_file_name = "/home/ning/pg/tpch_1/lineitem.tbl"
 done_reward_file = "/home/ning/zorder/New_agg_result/done_reward.txt"
 selected_col_file = "/home/ning/zorder/New_agg_result/select_cols.txt"
 
 def GenerateRandomPredicts():
-    table = pd.read_csv(source_file_name,header=None,delimiter=',')
+    table = pd.read_csv(source_file_name,header=None,delimiter='|')
     predict = []
     for i in range(50):    
-        nums_filter = random.randint(2,11)
+        nums_filter = random.randint(2,6)
         seed = random.randint(1,100)
         rng = np.random.RandomState(seed)
         random_row = rng.randint(0,table.shape[0])
@@ -84,10 +87,10 @@ def GetContainANDPredicts(total_where_arrays):
 
 def GetCompleteSql(where_has_and):
     final_workload = []
-    common_sql_part = '''select * from dmv where '''
+    common_sql_part = '''select * from lineitem where '''
     for each_sql_predict in where_has_and:
         if len(each_sql_predict[0]) == 0:
-            final_sql = "select * from dmv"
+            final_sql = "select * from lineitem"
         else:
             final_sql = common_sql_part + each_sql_predict[0]
         final_workload.append(final_sql)
@@ -98,7 +101,7 @@ def GetSQLsErows(SQLs):
     cur = conn.cursor()
     conn.set_session(autocommit=True)
 
-    sql = '''explain select * from dmv where record_type >= 'A' '''
+    sql = '''explain select * from lineitem where l_orderkey >= 1 '''
     cur.execute(sql)
     results=cur.fetchall()
     All_rows = GetErow(results)
@@ -135,7 +138,8 @@ def GetMLPredict(total_where_array,selected_cols):
                 predict = predict + '(' + sorted_show + ')' + '&'
         predict = predict.strip('&')
         if (len(predict) == 0):
-            predicts.append("sorted_data['Record_Type'] >= sorted_data['Record_Type'].min()")
+            # predicts.append("sorted_data['Record_Type'] >= sorted_data['Record_Type'].min()")
+            predicts.append("sorted_data['l_orderkey'] >= sorted_data['l_orderkey'].min()")
         else:
             predicts.append(predict)
     return predicts
@@ -200,13 +204,14 @@ if __name__ == "__main__":
     # GenerateRandomPredicts()
     total_where_array = HandlePredictsGetArrays()
     selected_cols = GetSelectCols()
+    # selected_cols = ['l_orderkey', 'l_partkey', 'l_suppkey', 'l_extendedprice','l_commitdate','l_comment']
     predcits_based_selected_cols = GetPredictsBasedSelectCols(total_where_array,selected_cols)
     SQLs = GetCompleteSql(predcits_based_selected_cols)
     for i in range(len(SQLs)):
-        print(SQLs[i])
-    predicates = GetMLPredict(total_where_array,selected_cols)
-    print(predicates)
-    columns = GetMlColumn(total_where_array,selected_cols)
-    print(columns)
-    selectivities = GetSQLsErows(SQLs)
-    print(selectivities)
+        print('"' + SQLs[i] + '"')
+    # predicates = GetMLPredict(total_where_array,selected_cols)
+    # print(predicates)
+    # columns = GetMlColumn(total_where_array,selected_cols)
+    # print(columns)
+    # selectivities = GetSQLsErows(SQLs)
+    # print(selectivities)
